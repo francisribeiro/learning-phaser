@@ -55,6 +55,10 @@ function preload() {
     game.load.spritesheet('coin', 'images/coin_animated.png', 22, 22);
     game.load.audio('sfx:coin', 'audio/coin.wav');
 
+    //Spiders
+    game.load.spritesheet('spider', 'images/spider.png', 42, 32);
+    game.load.image('invisible-wall', 'images/invisible_wall.png');
+
     ////////////////////////////////////////////////////////////////
 
     // Loading level
@@ -90,13 +94,17 @@ function _loadLevel(data) {
     // Create all the groups/layers that we need
     this.platforms = this.game.add.group();
     this.coins = this.game.add.group();
+    this.spiders = this.game.add.group();
+    this.enemyWalls = this.game.add.group();
+    this.enemyWalls.visible = false;
 
     // Spawn platforms
     data.platforms.forEach(_spawnPlatform);
 
     // Spawn hero and enemies
     _spawnCharacters({
-        hero: data.hero
+        hero: data.hero,
+        spiders: data.spiders
     });
 
     // Spawn important objects
@@ -113,6 +121,8 @@ function _spawnPlatform(platform) {
     this.game.physics.enable(sprite);
     sprite.body.allowGravity = false;
     sprite.body.immovable = true;
+    this._spawnEnemyWall(platform.x, platform.y, 'left');
+    this._spawnEnemyWall(platform.x + sprite.width, platform.y, 'right');
 }
 
 // Hero
@@ -147,6 +157,12 @@ Hero.prototype.jump = function () {
 
 // Spawn the characters
 function _spawnCharacters(data) {
+    // spawn spiders
+    data.spiders.forEach(function (spider) {
+        let sprite = new Spider(this.game, spider.x, spider.y);
+        this.spiders.add(sprite);
+    }, this);
+
     hero = new Hero(game, data.hero.x, data.hero.y);
     game.add.existing(hero);
 }
@@ -162,8 +178,11 @@ function _handleInput() {
 }
 
 function _handleCollisions() {
+    game.physics.arcade.collide(this.spiders, this.platforms);
+    game.physics.arcade.collide(this.spiders, this.enemyWalls);
     game.physics.arcade.collide(this.hero, this.platforms);
     game.physics.arcade.overlap(this.hero, this.coins, this._onHeroVsCoin, null, this);
+    game.physics.arcade.collide(this.spiders, this.platforms);
 }
 
 function _spawnCoin(coin) {
@@ -178,4 +197,46 @@ function _spawnCoin(coin) {
 function _onHeroVsCoin(hero, coin) {
     this.sfx.coin.play();
     coin.kill();
+};
+
+function Spider(game, x, y) {
+    Phaser.Sprite.call(this, game, x, y, 'spider');
+
+    // anchor
+    this.anchor.set(0.5);
+    // animation
+    this.animations.add('crawl', [0, 1, 2], 8, true);
+    this.animations.add('die', [0, 4, 0, 4, 0, 4, 3, 3, 3, 3, 3, 3], 12);
+    this.animations.play('crawl');
+
+    // physic properties
+    game.physics.enable(this);
+    this.body.collideWorldBounds = true;
+    this.body.velocity.x = Spider.SPEED;
+}
+
+Spider.SPEED = 100;
+
+// inherit from Phaser.Sprite
+Spider.prototype = Object.create(Phaser.Sprite.prototype);
+Spider.prototype.constructor = Spider;
+
+function _spawnEnemyWall(x, y, side) {
+    let sprite = this.enemyWalls.create(x, y, 'invisible-wall');
+    // anchor and y displacement
+    sprite.anchor.set(side === 'left' ? 1 : 0, 1);
+
+    // physic properties
+    game.physics.enable(sprite);
+    sprite.body.immovable = true;
+    sprite.body.allowGravity = false;
+};
+
+Spider.prototype.update = function () {
+    // check against walls and reverse direction if necessary
+    if (this.body.touching.right || this.body.blocked.right) {
+        this.body.velocity.x = -Spider.SPEED; // turn left
+    } else if (this.body.touching.left || this.body.blocked.left) {
+        this.body.velocity.x = Spider.SPEED; // turn right
+    }
 };
