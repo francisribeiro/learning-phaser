@@ -304,7 +304,7 @@ function _onHeroVsEnemy(hero, enemy) {
     }
     else { // game over -> restart the game
         this.sfx.stomp.play();
-        this.game.state.restart(true, false, {level: this.level});
+        this.game.state.restart(true, false, { level: this.level });
     }
 }
 
