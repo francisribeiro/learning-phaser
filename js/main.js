@@ -8,6 +8,7 @@ var game = new Phaser.Game(960, 600, Phaser.AUTO, null, {
 var hero;
 var keys;
 var sfx;
+var coinPickupCount;
 
 function init() {
     // Forbid the anti-aliasing for pixel art
@@ -26,6 +27,8 @@ function init() {
         if (didJump)
             sfx.jump.play();
     }, this);
+
+    coinPickupCount = 0;
 }
 
 function preload() {
@@ -58,6 +61,7 @@ function preload() {
     //Spiders
     game.load.spritesheet('spider', 'images/spider.png', 42, 32);
     game.load.image('invisible-wall', 'images/invisible_wall.png');
+    game.load.audio('sfx:stomp', 'audio/stomp.wav');
 
     ////////////////////////////////////////////////////////////////
 
@@ -67,6 +71,11 @@ function preload() {
 
     // Loading levels
     game.load.audio('sfx:jump', 'audio/jump.wav');
+
+    //scoreboard
+    game.load.image('icon:coin', 'images/coin_icon.png');
+    game.load.image('font:numbers', 'images/numbers.png');
+
 }
 
 function create() {
@@ -79,13 +88,18 @@ function create() {
     // Create sound entities
     sfx = {
         jump: game.add.audio('sfx:jump'),
-        coin: game.add.audio('sfx:coin')
+        coin: game.add.audio('sfx:coin'),
+        stomp: game.add.audio('sfx:stomp')
     };
+
+    _createHud();
+
 }
 
 function update() {
     _handleCollisions();
     _handleInput();
+    coinFont.text = `x${coinPickupCount}`;
 }
 
 ////////////////////////////////////////////////////////////////
@@ -183,6 +197,7 @@ function _handleCollisions() {
     game.physics.arcade.collide(this.hero, this.platforms);
     game.physics.arcade.overlap(this.hero, this.coins, this._onHeroVsCoin, null, this);
     game.physics.arcade.collide(this.spiders, this.platforms);
+    game.physics.arcade.overlap(this.hero, this.spiders, this._onHeroVsEnemy, null, this);
 }
 
 function _spawnCoin(coin) {
@@ -197,6 +212,7 @@ function _spawnCoin(coin) {
 function _onHeroVsCoin(hero, coin) {
     this.sfx.coin.play();
     coin.kill();
+    coinPickupCount++;
 };
 
 function Spider(game, x, y) {
@@ -240,3 +256,42 @@ Spider.prototype.update = function () {
         this.body.velocity.x = Spider.SPEED; // turn right
     }
 };
+
+function _onHeroVsEnemy(hero, enemy) {
+    if (hero.body.velocity.y > 0) { // kill enemies when hero is falling
+        hero.bounce();
+        enemy.die();
+        this.sfx.stomp.play();
+    }
+    else { // game over -> restart the game
+        this.sfx.stomp.play();
+        this.game.state.restart();
+
+    }
+}
+
+Hero.prototype.bounce = function () {
+    const BOUNCE_SPEED = 200;
+    this.body.velocity.y = -BOUNCE_SPEED;
+};
+
+Spider.prototype.die = function () {
+    this.body.enable = false;
+
+    this.animations.play('die').onComplete.addOnce(function () {
+        this.kill();
+    }, this);
+};
+
+function _createHud() {
+    const NUMBERS_STR = '0123456789X ';
+    coinFont = this.game.add.retroFont('font:numbers', 20, 26, NUMBERS_STR, 6);
+    let coinIcon = this.game.make.image(0, 0, 'icon:coin');
+    let coinScoreImg = this.game.make.image(coinIcon.x + coinIcon.width, coinIcon.height / 2, this.coinFont);
+    coinScoreImg.anchor.set(0, 0.5);
+
+    this.hud = this.game.add.group();
+    this.hud.add(coinIcon);
+    this.hud.position.set(10, 10);
+    this.hud.add(coinScoreImg);
+}
