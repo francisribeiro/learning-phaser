@@ -5,11 +5,14 @@ var game = new Phaser.Game(960, 600, Phaser.AUTO, null, {
     update: update
 });
 
+
 var hero;
 var keys;
 var sfx;
 var coinPickupCount;
 var hasKey;
+var level = 0;
+const LEVEL_COUNT = 2;
 
 function init() {
     // Forbid the anti-aliasing for pixel art
@@ -31,7 +34,7 @@ function init() {
 
     coinPickupCount = 0;
     hasKey = false;
-
+    level = (level || 0) % LEVEL_COUNT;
 }
 
 function preload() {
@@ -69,6 +72,7 @@ function preload() {
     ////////////////////////////////////////////////////////////////
 
     // Loading level
+    game.load.json('level:0', 'data/level00.json');
     game.load.json('level:1', 'data/level01.json');
 
 
@@ -94,7 +98,7 @@ function create() {
     game.add.image(0, 0, 'background');
 
     // Loading level
-    _loadLevel(game.cache.getJSON('level:1'));
+    _loadLevel(game.cache.getJSON(`level:${level}`));
 
     // Create sound entities
     sfx = {
@@ -300,8 +304,7 @@ function _onHeroVsEnemy(hero, enemy) {
     }
     else { // game over -> restart the game
         this.sfx.stomp.play();
-        this.game.state.restart();
-
+        this.game.state.restart(true, false, {level: this.level});
     }
 }
 
@@ -390,6 +393,6 @@ _onHeroVsKey = function (hero, key) {
 
 _onHeroVsDoor = function (hero, door) {
     this.sfx.door.play();
-    this.game.state.restart();
-    // TODO: go to the next level instead
+    level++;
+    game.state.restart();
 };
